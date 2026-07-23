@@ -1,0 +1,42 @@
+name: Publish Staged Orpheus APK
+
+on:
+  push:
+    branches:
+      - incoming
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Publish Public APK Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Staged Release
+        uses: actions/checkout@v4
+
+      - name: Read and Validate Release Metadata
+        id: metadata
+        shell: bash
+        run: |
+          tag="$(node -p "require('./release.json').tag")"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag: $tag"
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Publish Signed APK
+        uses: softprops/action-gh-release@v3
+        with:
+          files: Orpheus-*.apk
+          fail_on_unmatched_files: true
+          draft: false
+          prerelease: false
+          name: Release ${{ steps.metadata.outputs.tag }}
+          tag_name: ${{ steps.metadata.outputs.tag }}
+          target_commitish: main
+          body_path: release-notes.md
+          token: ${{ github.token }}
